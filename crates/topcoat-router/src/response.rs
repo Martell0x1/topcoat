@@ -1,6 +1,9 @@
+mod headers;
+
 use std::{borrow::Cow, convert::Infallible, future::ready};
 
 use bytes::{Bytes, BytesMut};
+pub use headers::*;
 use http::{
     Extensions, HeaderMap, StatusCode,
     header::{CONTENT_TYPE, HeaderName, HeaderValue},
