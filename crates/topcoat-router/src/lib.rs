@@ -25,6 +25,7 @@ mod route;
 mod router;
 #[cfg(feature = "serve")]
 mod service;
+mod strip_prefix;
 #[cfg(feature = "tower")]
 pub mod tower;
 mod urlencoded;
@@ -51,3 +52,4 @@ pub use route::*;
 pub use router::*;
 #[cfg(feature = "serve")]
 pub use service::*;
+pub use strip_prefix::*;
