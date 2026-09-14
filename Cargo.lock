@@ -3111,6 +3111,7 @@ dependencies = [
  "hyper-util",
  "inventory",
  "matchit",
+ "mime_guess",
  "multer",
  "percent-encoding",
  "pin-project-lite",
