@@ -1,6 +1,8 @@
-use topcoat_core::fnv1a::Fnv1a;
+use std::panic::Location;
 
-/// A value that tells repetitions of one component invocation site apart.
+use crate::fnv1a::Fnv1a;
+
+/// A value that distinguishes identities at one source location.
 ///
 /// A key folds itself into the identity hash through the tagged writes on
 /// [`KeyHasher`]. Two keys derive the same identity exactly when they
@@ -9,13 +11,14 @@ use topcoat_core::fnv1a::Fnv1a;
 /// be distinct at one site write distinct sequences.
 ///
 /// Implementations exist for the integer primitives, `bool`, `char`,
-/// strings, byte slices, references, and tuples of keys. Integers hash by
+/// strings, byte slices, references, source locations, unit, and tuples of
+/// keys. Integers hash by
 /// mathematical value, so the same id used at a different width stays the
 /// same key. A custom id type implements the trait by writing its
 /// identifying parts in order:
 ///
 /// ```
-/// use topcoat_view::identity::{IdentityKey, KeyHasher};
+/// use topcoat_core::identity::{IdentityKey, KeyHasher};
 ///
 /// struct UserId(u64);
 ///
@@ -45,6 +48,8 @@ const TAG_STR: u8 = b's';
 const TAG_BYTES: u8 = b'x';
 /// Tag byte starting a tuple frame.
 const TAG_TUPLE: u8 = b'(';
+/// Tag byte starting a source location.
+const TAG_LOCATION: u8 = b'l';
 
 /// Terminator ending a string write.
 ///
@@ -52,7 +57,7 @@ const TAG_TUPLE: u8 = b'(';
 /// string without escaping.
 const STR_END: u8 = 0xFF;
 
-/// The hasher an [`IdentityKey`] folds itself into.
+/// The hasher a [`IdentityKey`] folds itself into.
 ///
 /// Wraps the running identity hash during key derivation. Every write is
 /// tagged with the kind of data written and is self-delimiting, so keys of
@@ -60,16 +65,21 @@ const STR_END: u8 = 0xFF;
 /// cannot collide by concatenation. The hasher moves through every write,
 /// threading through a chain of calls, and only the derivation that created
 /// it can take the final value out.
+#[derive(Default)]
 pub struct KeyHasher(Fnv1a<u128>);
 
 impl KeyHasher {
     /// Wraps the running hash of a keyed derivation.
-    pub(super) fn new(hash: Fnv1a<u128>) -> Self {
+    #[doc(hidden)]
+    #[must_use]
+    pub fn new(hash: Fnv1a<u128>) -> Self {
         Self(hash)
     }
 
     /// Takes the derived hash value out.
-    pub(super) fn finish(self) -> u128 {
+    #[doc(hidden)]
+    #[must_use]
+    pub fn finish(self) -> u128 {
         self.0.finish()
     }
 
@@ -139,6 +149,18 @@ impl KeyHasher {
 impl<K: IdentityKey + ?Sized> IdentityKey for &K {
     fn write(&self, hasher: KeyHasher) -> KeyHasher {
         (**self).write(hasher)
+    }
+}
+
+impl IdentityKey for () {
+    fn write(&self, hasher: KeyHasher) -> KeyHasher {
+        hasher.tuple(0)
+    }
+}
+
+impl IdentityKey for Location<'_> {
+    fn write(&self, hasher: KeyHasher) -> KeyHasher {
+        (self.file(), self.line(), self.column()).write(KeyHasher(hasher.0.write(&[TAG_LOCATION])))
     }
 }
 
@@ -291,10 +313,28 @@ mod tests {
 
     #[test]
     fn tuples_frame_their_elements() {
+        assert_ne!(hash(()), hash(((),)));
+        assert_ne!(hash(()), hash(0));
         assert_eq!(hash((1, "a")), hash((1, "a")));
         assert_ne!(hash((1, 2)), hash((2, 1)));
         assert_ne!(hash((1, (2, 3))), hash((1, 2, 3)));
         assert_ne!(hash(("ab", "c")), hash(("a", "bc")));
         assert_ne!(hash((1,)), hash(1));
+    }
+
+    #[test]
+    fn locations_are_stable_and_distinguish_call_sites() {
+        fn location() -> &'static Location<'static> {
+            Location::caller()
+        }
+
+        assert_eq!(hash(location()), hash(location()));
+        let first = Location::caller();
+        let second = Location::caller();
+        assert_ne!(hash(first), hash(second));
+        assert_ne!(
+            hash(first),
+            hash((first.file(), first.line(), first.column()))
+        );
     }
 }
