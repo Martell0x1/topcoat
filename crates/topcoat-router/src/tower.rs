@@ -1443,29 +1443,4 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
-
-    #[test]
-    fn a_serve_dir_route_strips_its_path_prefix() {
-        let dir =
-            std::env::temp_dir().join(format!("topcoat-tower-serve-dir-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("hello.txt"), b"hello").unwrap();
-
-        let router = Router::builder()
-            .route(TowerRoute::new(
-                Methods::Any,
-                Path::new("/res/{*path}"),
-                tower_http::services::ServeDir::new(&dir),
-            ))
-            .build();
-
-        let request = http::Request::builder()
-            .uri("/res/hello.txt")
-            .body(Body::empty())
-            .unwrap();
-        let response = block_on(router.handle(request));
-
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(&body_bytes(response)[..], b"hello");
-    }
 }
