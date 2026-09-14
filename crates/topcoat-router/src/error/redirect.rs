@@ -66,7 +66,7 @@ pub fn redirect_permanent(uri: impl AsRef<str>) -> RedirectError {
 /// from an `Option` / `Result` via [`RouterErrorExt`](crate::error::RouterErrorExt).
 /// For the Post/Redirect/Get pattern, which sends the browser on with a
 /// `GET`, reach for [`see_other`] instead.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RedirectError {
     status: StatusCode,
     location: HeaderValue,
@@ -170,7 +170,7 @@ pub fn see_other(uri: impl AsRef<str>) -> SeeOther {
 /// The redirect is both a response and an error, so a handler can return it
 /// either way: a route returns it through `Ok`, and a page, whose `Ok` value
 /// is a view, returns it through `Err`. Both produce the same 303 response.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SeeOther {
     location: HeaderValue,
 }
@@ -211,12 +211,12 @@ impl IntoResponse for SeeOther {
 ///
 /// Returns `Err(error)` if the error is not a redirect.
 pub(crate) fn redirect_location(error: Error) -> Result<HeaderValue, Error> {
-    let error = match error.downcast::<RedirectError>() {
+    let error = match error.downcast_cloned::<RedirectError>() {
         Ok(redirect) => return Ok(redirect.location),
         Err(error) => error,
     };
     error
-        .downcast::<SeeOther>()
+        .downcast_cloned::<SeeOther>()
         .map(|redirect| redirect.location)
 }
 

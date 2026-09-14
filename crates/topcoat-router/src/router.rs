@@ -151,7 +151,7 @@ impl Router {
                 Ok(response) => break (cx, Ok(response)),
                 Err(error) => match error.downcast::<RewriteError>() {
                     Ok(rewrite) => rewrite,
-                    Err(error) => break (cx, Err(error)),
+                    Err(failed) => break (cx, Err(failed.into_error())),
                 },
             };
             let rewrite = rewrite.into_parts();
