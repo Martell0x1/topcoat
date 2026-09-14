@@ -30,6 +30,7 @@ mod service;
 mod strip_prefix;
 #[cfg(feature = "tower")]
 pub mod tower;
+mod trailing_slash;
 mod urlencoded;
 
 pub use body::*;
@@ -57,3 +58,4 @@ pub use serve_dir::*;
 #[cfg(feature = "serve")]
 pub use service::*;
 pub use strip_prefix::*;
+pub use trailing_slash::*;

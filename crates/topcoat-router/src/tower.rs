@@ -97,22 +97,6 @@ impl<S> TowerRoute<S> {
             service,
         }
     }
-    // strip for only serveDir service
-    fn strip_route_prefix(&self, request_path: &str) -> String {
-        let route = self.path.as_str();
-
-        let prefix = route.split("/{*").next().unwrap_or(route);
-
-        let stripped = request_path.strip_prefix(prefix).unwrap_or(request_path);
-
-        if stripped.is_empty() {
-            "/".to_owned()
-        } else {
-            stripped.to_owned()
-        }
-    }
-    fn is_serve_dir() -> bool {
-        std::any::type_name::<S>().contains("ServeDir")
 
     /// Mounts `service` at `path`, responding to every HTTP method.
     ///
@@ -156,33 +140,13 @@ where
             // Reassemble the http request the service consumes from a copy of
             // the parts on the context; the originals stay available to outer
             // layers and error rendering.
-            let mut parts = parts(cx).clone();
-            if Self::is_serve_dir() {
-                let stripped = self.strip_route_prefix(parts.uri.path());
-                parts.uri = rewrite_path(parts.uri, &stripped);
-            }
-            let request = Request::from_parts(parts, body);
-
+            let request = Request::from_parts(parts(cx).clone(), body);
             match service.oneshot(request).await {
                 Ok(response) => Ok(response.map(Body::new)),
                 Err(error) => Err(TowerServiceError(error.into()).into()),
             }
         })
     }
-}
-
-fn rewrite_path(uri: http::Uri, path: &str) -> http::Uri {
-    let path_and_query = match uri.query() {
-        Some(query) => format!("{path}?{query}"),
-        None => path.to_owned(),
-    };
-    let mut parts = uri.into_parts();
-    parts.path_and_query = Some(
-        path_and_query
-            .parse()
-            .expect("stripped path is a valid URI path"),
-    );
-    http::Uri::from_parts(parts).expect("rewritten URI is valid")
 }
 
 /// A [`Layer`] that wraps request handling in a [`tower::Layer`]'s

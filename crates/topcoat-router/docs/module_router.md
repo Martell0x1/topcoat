@@ -1,4 +1,4 @@
-The `module_router!` macro derives a handler's path from its enclosing Rust module. A handler without a path string uses the module path. When registered, a handler with a path string uses that explicit path.
+The `module_router!` macro derives a handler's path from its enclosing Rust module. A handler without a path string uses the module path. A handler whose path string starts with `./` is served below the module path. Absolute path strings are ignored by the module router entirely.
 
 # Setup
 
@@ -128,6 +128,44 @@ async fn api_log(cx: &Cx, body: Body, next: Next<'_>) -> Result<Response> {
     Ok(response)
 }
 ```
+
+# Relative paths
+
+A relative path string starting with `./` is joined onto the module path. This places a handler below its module without adding a module for it.
+
+```rust
+# use topcoat::{Result, router::page, view::{View, view}};
+// src/app/settings.rs: GET /settings
+#[page]
+async fn settings() -> Result<impl View> {
+    Ok(view! { <h1>"Settings"</h1> })
+}
+
+// src/app/settings.rs: POST /settings/export
+#[page(POST "./export")]
+async fn export() -> Result<impl View> {
+    Ok(view! { <p>"Export started"</p> })
+}
+```
+
+This can also be used to add a trailing slash to the end of your module path. A bare `./` serves the module path itself with a trailing slash, and a relative path ending in a slash keeps it.
+
+```rust
+# use topcoat::{Result, router::page, view::{View, view}};
+// src/app/settings.rs: GET /settings/
+#[page("./")]
+async fn settings() -> Result<impl View> {
+    Ok(view! { <h1>"Settings"</h1> })
+}
+
+// src/app/settings.rs: GET /settings/export/
+#[page("./export/")]
+async fn export() -> Result<impl View> {
+    Ok(view! { <h1>"Export"</h1> })
+}
+```
+
+The same form works for `#[layout]`, `#[layer]`, and `#[route]`.
 
 # Dynamic path parameters
 
@@ -278,11 +316,11 @@ topcoat::router::segment!(kind = Static);
 
 Group names remain part of Topcoat's logical paths. A layout or layer in `_marketing` applies only to descendants of `_marketing`, even though the group name is absent from request URLs.
 
-# Explicit paths
+# Explicit absolute paths
 
-Adding a path string to `#[page]`, `#[layout]`, `#[layer]`, or `#[route]` disables module path derivation for that item. `segment!` declarations do not alter explicit paths.
+Adding an absolute path string to `#[page]`, `#[layout]`, `#[layer]`, or `#[route]` disables module path derivation for that item. `segment!` declarations do not affect explicit absolute paths.
 
-`module_router!()` discovers module-derived handlers. Register an explicit-path handler by name:
+`module_router!()` discovers module-derived handlers. Register an absolute-path handler by name:
 
 ```rust
 # use topcoat::{Result, router::page, view::{View, view}};
