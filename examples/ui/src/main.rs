@@ -21,10 +21,13 @@ use components::{
         dropdown_menu_separator, dropdown_menu_sub, dropdown_menu_sub_content,
         dropdown_menu_sub_trigger, dropdown_menu_trigger,
     },
+    field::{
+        FieldLegendVariant, FieldOrientation, field, field_content, field_description, field_error,
+        field_group, field_label, field_legend, field_separator, field_set,
+    },
     hover_card::{hover_card, hover_card_content},
     input::input,
     kbd::{kbd, kbd_group},
-    label::label,
     pagination::{
         pagination, pagination_content, pagination_ellipsis, pagination_item, pagination_link,
         pagination_next, pagination_previous,
@@ -62,7 +65,7 @@ use topcoat::{
     router::{Router, RouterBuilderDiscoverExt, page},
     runtime::{Event, RouterBuilderRuntimeExt, Signal, expr, shard, signal},
     tailwind,
-    view::{Child, View, attributes, class, component, view},
+    view::{Child, View, attributes, component, view},
 };
 
 /// A stand-in portrait for the workspace's owner, served from the example's
@@ -71,7 +74,6 @@ const PORTRAIT: Asset = asset!("./portrait.svg");
 
 /// The pages this one links out to: the framework's documentation, its
 /// source, and the registry the components here were added from.
-const CRATE: &str = "https://crates.io/crates/topcoat";
 const DOCS: &str = "https://docs.rs/topcoat";
 const REPOSITORY: &str = "https://github.com/tokio-rs/topcoat";
 const REGISTRY: &str = "https://github.com/tokio-rs/topcoat/tree/main/crates/topcoat-ui/registry";
@@ -87,16 +89,6 @@ async fn main() {
     topcoat::start(router).await.unwrap();
 }
 
-/// The tab values and labels. The first is selected when the page opens.
-const TABS: [(&str, &str); 3] = [
-    ("overview", "Overview"),
-    ("activity", "Activity"),
-    ("settings", "Settings"),
-];
-
-/// How many rows one page of the deployments table holds.
-const PER_PAGE: usize = 3;
-
 /// The statuses a deployment can be in, and the badge variant each shows in.
 const STATUSES: [(&str, BadgeVariant); 4] = [
     ("Live", BadgeVariant::Primary),
@@ -104,13 +96,6 @@ const STATUSES: [(&str, BadgeVariant); 4] = [
     ("Queued", BadgeVariant::Outline),
     ("Failed", BadgeVariant::Destructive),
 ];
-
-/// The branches a preview can build from. The first is the one it builds from
-/// until another is picked.
-const BRANCHES: [&str; 3] = ["main", "feature/showcase", "feature/dark-mode"];
-
-/// The tags a preview can build from instead of a branch.
-const TAGS: [&str; 3] = ["v1.2.0", "v1.1.0", "v1.0.0"];
 
 /// The badge variant the deployment status `status` shows in.
 fn status_variant(status: &str) -> BadgeVariant {
@@ -436,6 +421,8 @@ async fn team_card() -> Result<impl View> {
 /// The badge variants with example deployment counts.
 #[component]
 async fn status_card() -> Result<impl View> {
+    const CRATE: &str = "https://crates.io/crates/topcoat";
+
     Ok(view! {
         card(
             card_header(
@@ -529,7 +516,7 @@ async fn progress_card(cx: &Cx) -> Result<impl View> {
     })
 }
 
-/// The form controls, each with the label naming it.
+/// Form fields with labels, descriptions, and inline validation.
 ///
 /// The fields keep their values in signals. Reset restores their initial values.
 #[component]
@@ -537,80 +524,139 @@ async fn form_card(cx: &Cx) -> Result<impl View> {
     let name = signal(cx, String::new);
     let region = signal(cx, || String::from("eu-central-1"));
     let summary = signal(cx, String::new);
+    let validated = signal(cx, || false);
+    let invalid = expr!(if validated.get() {
+        name.get().trim().is_empty()
+    } else {
+        false
+    });
 
     Ok(view! {
         card(
             card_header(
                 card_title("Form controls")
-                card_description("An input, a select, a textarea, and a label each.")
+                card_description(
+                    "Grouped fields, helpful descriptions, and inline errors."
+                )
             )
             card_content(
                 <form
                     class="flex flex-col gap-4"
-                    @submit=$(|e: Event| e.prevent_default())
+                    @submit=$(|e: Event| {
+                        e.prevent_default();
+                        validated.set(true);
+                    })
                     @reset=$(|e: Event| {
                         e.prevent_default();
                         name.set("".to_owned());
                         region.set("eu-central-1".to_owned());
                         summary.set("".to_owned());
+                        validated.set(false);
                     })
                 >
-                    <div class="flex flex-col gap-2">
-                        label(attrs: attributes! { for="project-name" }, "Name")
-                        input(
-                            attrs: attributes! {
-                                id="project-name"
-                                placeholder="my-app"
-                                :value=$(name.get())
-                                @input=$(|e: Event| name.set(e.target.value))
-                            }
+                    field_set(
+                        field_legend(
+                            variant: FieldLegendVariant::Label,
+                            "Project details"
                         )
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        label(attrs: attributes! { for="region" }, "Region")
-                        select(
-                            attrs: attributes! {
-                                id="region"
-                                :value=$(region.get())
-                                @change=$(|e: Event| region.set(e.target.value))
-                            },
-                            <optgroup label="Europe">
-                                <legend>"Europe"</legend>
-                                <option>"eu-central-1"</option>
-                                <option>"eu-west-2"</option>
-                            </optgroup>
-                            <optgroup label="Americas">
-                                <legend>"Americas"</legend>
-                                <option>"us-east-1"</option>
-                                <option>"sa-east-1"</option>
-                            </optgroup>
+                        field_group(
+                            field(
+                                field_label(
+                                    attrs: attributes! { for="project-name" },
+                                    "Name"
+                                )
+                                input(
+                                    attrs: attributes! {
+                                        id="project-name"
+                                        name="name"
+                                        placeholder="my-app"
+                                        aria-required="true"
+                                        aria-describedby="project-name-description project-name-error"
+                                        :aria-invalid=$(if invalid { "true" } else { "false" })
+                                        :value=$(name.get())
+                                        @input=$(|e: Event| name.set(e.target.value))
+                                    }
+                                )
+                                field_description(
+                                    attrs: attributes! { id="project-name-description" },
+                                    "A name to identify this project."
+                                )
+                                field_error(
+                                    attrs: attributes! { id="project-name-error" :hidden=$(!invalid) },
+                                    $(if invalid { "Enter a project name." } else { "" })
+                                )
+                            )
+                            field(
+                                field_label(attrs: attributes! { for="region" }, "Region")
+                                select(
+                                    attrs: attributes! {
+                                        id="region"
+                                        name="region"
+                                        aria-describedby="region-description"
+                                        :value=$(region.get())
+                                        @change=$(|e: Event| region.set(e.target.value))
+                                    },
+                                    <optgroup label="Europe">
+                                        <legend>"Europe"</legend>
+                                        <option>"eu-central-1"</option>
+                                        <option>"eu-west-2"</option>
+                                    </optgroup>
+                                    <optgroup label="Americas">
+                                        <legend>"Americas"</legend>
+                                        <option>"us-east-1"</option>
+                                        <option>"sa-east-1"</option>
+                                    </optgroup>
+                                )
+                                field_description(
+                                    attrs: attributes! { id="region-description" },
+                                    "Choose the region closest to your users."
+                                )
+                            )
+                            field(
+                                field_label(
+                                    attrs: attributes! { for="summary" },
+                                    "Summary"
+                                )
+                                textarea(
+                                    attrs: attributes! {
+                                        id="summary"
+                                        name="summary"
+                                        placeholder="What this project is for."
+                                        :value=$(summary.get())
+                                        @input=$(|e: Event| summary.set(e.target.value))
+                                    }
+                                )
+                            )
+                            field_separator()
+                            field(
+                                orientation: FieldOrientation::Responsive,
+                                field_label(attrs: attributes! { for="owner" }, "Owner")
+                                // A disabled field shows a value that is not the
+                                // form's to change.
+                                field_content(
+                                    input(
+                                        attrs: attributes! {
+                                            id="owner"
+                                            value="ada@example.com"
+                                            aria-describedby="owner-description"
+                                            disabled=""
+                                        }
+                                    )
+                                    field_description(
+                                        attrs: attributes! { id="owner-description" },
+                                        "The workspace owner manages this project."
+                                    )
+                                )
+                            )
                         )
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        label(attrs: attributes! { for="summary" }, "Summary")
-                        textarea(
-                            attrs: attributes! {
-                                id="summary"
-                                placeholder="What this project is for."
-                                :value=$(summary.get())
-                                @input=$(|e: Event| summary.set(e.target.value))
-                            }
-                        )
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        label(attrs: attributes! { for="owner" }, "Owner")
-                        // A disabled field shows a value that is not the
-                        // form's to change.
-                        input(
-                            attrs: attributes! { id="owner" value="ada@example.com" disabled="" }
-                        )
-                    </div>
+                    )
                     <div class="flex flex-wrap justify-end gap-2">
                         button(
                             variant: ButtonVariant::Outline,
                             attrs: attributes! { type="reset" },
                             "Reset"
                         )
+                        button(attrs: attributes! { type="submit" }, "Validate")
                     </div>
                 </form>
             )
@@ -618,27 +664,19 @@ async fn form_card(cx: &Cx) -> Result<impl View> {
     })
 }
 
-/// The states a checkbox is shown in: the id it goes by, the word for the
-/// state, whether it is checked, and whether it is disabled.
-const CHECKS: [(&str, &str, bool, bool); 4] = [
-    ("check-on", "Checked", true, false),
-    ("check-off", "Unchecked", false, false),
-    ("check-on-off", "Checked and disabled", true, true),
-    ("check-off-off", "Unchecked and disabled", false, true),
-];
-
-/// The same states, shown on a switch.
-const SWITCHES: [(&str, &str, bool, bool); 3] = [
-    ("switch-on", "On", true, false),
-    ("switch-off", "Off", false, false),
-    ("switch-off-off", "Off and disabled", false, true),
-];
-
 /// Checkboxes in their checked, unchecked, and disabled states.
 ///
 /// Each control keeps its own signal, starting in the state its row names.
 #[component]
 async fn checks_card(cx: &Cx) -> Result<impl View> {
+    // The id, label, checked state, and disabled state of each checkbox.
+    const CHECKS: [(&str, &str, bool, bool); 4] = [
+        ("check-on", "Checked", true, false),
+        ("check-off", "Unchecked", false, false),
+        ("check-on-off", "Checked and disabled", true, true),
+        ("check-off-off", "Unchecked and disabled", false, true),
+    ];
+
     let checks: Vec<_> = CHECKS
         .into_iter()
         .map(|(id, text, checked, disabled)| {
@@ -653,9 +691,11 @@ async fn checks_card(cx: &Cx) -> Result<impl View> {
                 card_description("Checked, unchecked, and disabled.")
             )
             card_content(
-                <div class="flex flex-col gap-3">
+                field_group(
+                    attrs: attributes! { class="gap-3" },
                     for (id, text, checked, disabled) in checks {
-                        <div class="flex items-center gap-2">
+                        field(
+                            orientation: FieldOrientation::Horizontal,
                             checkbox(
                                 attrs: attributes! {
                                     id=(id)
@@ -664,13 +704,10 @@ async fn checks_card(cx: &Cx) -> Result<impl View> {
                                     disabled=(disabled)
                                 }
                             )
-                            label(
-                                attrs: attributes! { for=(id) class=(class!("opacity-50" if disabled)) },
-                                (text)
-                            )
-                        </div>
+                            field_label(attrs: attributes! { for=(id) }, (text))
+                        )
                     }
-                </div>
+                )
             )
         )
     })
@@ -679,6 +716,13 @@ async fn checks_card(cx: &Cx) -> Result<impl View> {
 /// Switches with an independent signal for each control.
 #[component]
 async fn switches_card(cx: &Cx) -> Result<impl View> {
+    // The id, label, checked state, and disabled state of each switch.
+    const SWITCHES: [(&str, &str, bool, bool); 3] = [
+        ("switch-on", "On", true, false),
+        ("switch-off", "Off", false, false),
+        ("switch-off-off", "Off and disabled", false, true),
+    ];
+
     let switches: Vec<_> = SWITCHES
         .into_iter()
         .map(|(id, text, checked, disabled)| {
@@ -693,13 +737,12 @@ async fn switches_card(cx: &Cx) -> Result<impl View> {
                 card_description("On, off, and disabled.")
             )
             card_content(
-                <div class="flex flex-col gap-3">
+                field_group(
+                    attrs: attributes! { class="gap-3" },
                     for (id, text, checked, disabled) in switches {
-                        <div class="flex items-center justify-between gap-4">
-                            label(
-                                attrs: attributes! { for=(id) class=(class!("opacity-50" if disabled)) },
-                                (text)
-                            )
+                        field(
+                            orientation: FieldOrientation::Horizontal,
+                            field_label(attrs: attributes! { for=(id) }, (text))
                             switch(
                                 attrs: attributes! {
                                     id=(id)
@@ -708,9 +751,9 @@ async fn switches_card(cx: &Cx) -> Result<impl View> {
                                     disabled=(disabled)
                                 }
                             )
-                        </div>
+                        )
                     }
-                </div>
+                )
             )
         )
     })
@@ -735,7 +778,8 @@ async fn radios_card() -> Result<impl View> {
                     ] {
                         let id = format!("radio-demo-{value}");
 
-                        <div class="flex items-center gap-2">
+                        field(
+                            orientation: FieldOrientation::Horizontal,
                             radio_group_item(
                                 attrs: attributes! {
                                     id=(id.as_str())
@@ -745,8 +789,11 @@ async fn radios_card() -> Result<impl View> {
                                     disabled=(disabled)
                                 }
                             )
-                            label(attrs: attributes! { for=(id.as_str()) }, (text))
-                        </div>
+                            field_label(
+                                attrs: attributes! { for=(id.as_str()) },
+                                (text)
+                            )
+                        )
                     }
                 )
             )
@@ -757,6 +804,13 @@ async fn radios_card() -> Result<impl View> {
 /// A card that switches panels in the browser.
 #[component]
 async fn overview_card(cx: &Cx) -> Result<impl View> {
+    // The tab values and labels. The first is selected when the page opens.
+    const TABS: [(&str, &str); 3] = [
+        ("overview", "Overview"),
+        ("activity", "Activity"),
+        ("settings", "Settings"),
+    ];
+
     let selected = signal(cx, || TABS[0].0.to_owned());
 
     Ok(view! {
@@ -848,6 +902,10 @@ async fn faq_card() -> Result<impl View> {
 /// A branch switcher that updates its label and closes the menu locally.
 #[component]
 async fn branches_card(cx: &Cx) -> Result<impl View> {
+    // The first branch is selected until another branch or tag is picked.
+    const BRANCHES: [&str; 3] = ["main", "feature/showcase", "feature/dark-mode"];
+    const TAGS: [&str; 3] = ["v1.2.0", "v1.1.0", "v1.0.0"];
+
     let selected = signal(cx, || BRANCHES[0].to_owned());
     let open = signal(cx, || false);
     let tags_open = signal(cx, || false);
@@ -1243,6 +1301,8 @@ const DEPLOYMENTS: [(&str, &str, &str); 12] = [
 /// A table of deployments with pagination underneath.
 #[shard]
 async fn deployments_card(cx: &Cx) -> Result<impl View> {
+    const PER_PAGE: usize = 3;
+
     let page = signal(cx, || 1usize);
     let rows = &DEPLOYMENTS;
     let pages = rows.len().div_ceil(PER_PAGE).max(1);
@@ -1357,14 +1417,6 @@ fn listed(number: usize, page: usize, pages: usize) -> bool {
     number == 1 || number == pages || number == page
 }
 
-/// The keys that move through a form, and what each one does. They are the
-/// browser's own, so they work on this page as they read here.
-const KEYS: [(&str, &[&str]); 3] = [
-    ("Move to the next control", &["Tab"]),
-    ("Move back to the one before", &["Shift", "Tab"]),
-    ("Submit the form", &["Enter"]),
-];
-
 /// A breadcrumb trail with a collapsed middle section.
 #[component]
 async fn breadcrumbs_card() -> Result<impl View> {
@@ -1402,6 +1454,13 @@ async fn breadcrumbs_card() -> Result<impl View> {
 /// Individual keys and key combinations.
 #[component]
 async fn keyboard_card() -> Result<impl View> {
+    // The browser's own keys for moving through a form.
+    const KEYS: [(&str, &[&str]); 3] = [
+        ("Move to the next control", &["Tab"]),
+        ("Move back to the one before", &["Shift", "Tab"]),
+        ("Submit the form", &["Enter"]),
+    ];
+
     Ok(view! {
         card(
             card_header(
