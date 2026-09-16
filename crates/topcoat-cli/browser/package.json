@@ -1,11 +1,12 @@
 {
-	"name": "@topcoat-rs/runtime",
+	"name": "@topcoat-rs/dev",
 	"version": "0.0.1",
+	"private": true,
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
 		"lint": "biome ci --config-path . . ../../topcoat-core/browser",
-		"build": "tsup && tsup --config tsup.coherence.config.ts && tsc",
+		"build": "tsup && tsc",
 		"test": "vitest run"
 	},
 	"devDependencies": {
