@@ -18,6 +18,8 @@ The server evaluates the expression once to produce the initial HTML. In the bro
 
 An invocation expands to an [`Expr`] value bundling the server-evaluated result with the JavaScript source.
 
+The server evaluates expressions synchronously and observes their signal reads. If an expression reads no signals, it renders without reactive bindings or marker comments. This includes literals and captured ordinary values. Constructing an event-handler closure does not run its body, but its JavaScript is still emitted so the handler can run in the browser.
+
 # Captured variables
 
 An identifier that is not defined inside the expression is captured from the surrounding Rust scope:
@@ -35,6 +37,19 @@ Ok(view! {
 ```
 
 The captured value is cloned into the expression, so the surrounding code keeps using it, then serialized into the page during the render and becomes a constant in the generated JavaScript. It is a snapshot: the browser keeps the value from the render, and later changes on the server do not reach it. Captured values must belong to the shared vocabulary described next. Cloning an owned collection clones its elements; capturing a slice borrows the Rust elements but still serializes a snapshot for the browser.
+
+A captured `Expr<T>` behaves as its result type `T` inside the expression. Its JavaScript is inlined at each use, so signal reads stay reactive, including when used inside an event handler. The server reuses its already evaluated value and carries its dynamic status into the enclosing expression. Capturing a static expression keeps the static optimization available.
+
+```rust
+# use topcoat::{Result, context::Cx, runtime::{expr, signal}, view::*};
+# #[component]
+# async fn example(cx: &Cx) -> Result<impl View> {
+let selected = signal(cx, || "overview".to_owned());
+let active = expr!(selected.get() == "overview");
+let label = expr!(if active { "Selected" } else { "Select" });
+# Ok(view! { (label) })
+# }
+```
 
 # The shared vocabulary
 
@@ -86,6 +101,8 @@ Ok(view! {
 ```
 
 `${ident}` inside the JavaScript string interpolates a binding from the expression's scope. Without the Rust argument the expression can no longer be evaluated on the server, so that form is only usable where the expression runs purely in the browser. In either form, keeping the two sides equivalent is up to you.
+
+Signal reads in the Rust fallback determine whether the expression needs a browser binding. The fallback must therefore read the signals its JavaScript depends on, even if their initial values happen to produce a constant result.
 
 [`Expr`]: struct.Expr.html
 [`Signal`]: struct.Signal.html
