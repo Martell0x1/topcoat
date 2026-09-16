@@ -5,7 +5,7 @@ components_dir = "src/components"
 [theme]
 name = "neutral"
 registry = "topcoat"
-hash = "sha256:22cb1d72ddbe6fe2e3375fc32228ae5d67c26c74fe26dd00af451dc918367a18"
+hash = "sha256:b6e17c687faab82b2b316ee055d20c3282c8712393dea30432b62f84f3b6bad6"
 file = "styles.css"
 
 [registries.topcoat.components.accordion]
@@ -33,31 +33,31 @@ hash = "sha256:a049f067bc8663ef954b4a1621c9ec1800d1135ef5ddda32cc9fedc98213f14f"
 file = "src/components/breadcrumb.rs"
 
 [registries.topcoat.components.button]
-hash = "sha256:a95d77120917a44d88170a31abca5bae9e493dcc2c041b9b6443bfa2f15ebc06"
+hash = "sha256:ed5a5e6f6bd075f784851de3232d443f246520eb7bb9926116375b49e2eb7788"
 file = "src/components/button.rs"
 
 [registries.topcoat.components.card]
-hash = "sha256:177dd58b0c02121b070686c94964ebc20e7ef7ad026e05ca88f02808ec34f998"
+hash = "sha256:66ca06b47a2b5d663d3ff91cd278af8f48174bd4391694a9f41ece8c021bd88c"
 file = "src/components/card.rs"
 
 [registries.topcoat.components.checkbox]
-hash = "sha256:c5cb2baa25c978591e222d9e253b6d2c347f48c339bc5f348e1c54e70aaca620"
+hash = "sha256:4316938d7363cda3b7e90349c045849760b6e9cd8abe3b8ae1f91e3aa720f9c0"
 file = "src/components/checkbox.rs"
 
 [registries.topcoat.components.dialog]
-hash = "sha256:bf3a0a1d8fcb802c3fcb25f2aa724d36e1e81c26e8c5846d9767d5dfd05691fc"
+hash = "sha256:e0ec972ac908f7cbb700fc8f61108c38723822c9b8ac0f5a9fec7d7a22c5e8fb"
 file = "src/components/dialog.rs"
 
 [registries.topcoat.components.dropdown_menu]
-hash = "sha256:32369968a7163a9ff383e5c8602c1fbb6e97b632d0cb30a716b1c3358b704256"
+hash = "sha256:445157f59464f4e2d0e764d8500b7331438fd9b8d648013db07307eef2b16161"
 file = "src/components/dropdown_menu.rs"
 
 [registries.topcoat.components.hover_card]
-hash = "sha256:c3bceae840e0be75a9201544d65f9578e41cd9e61bcb9e236b2e9a6c78d739ac"
+hash = "sha256:a4cfcb51a2b5f8d887e5a03bef008c42518ef5cc90d562418c0ec0cf8d73855d"
 file = "src/components/hover_card.rs"
 
 [registries.topcoat.components.input]
-hash = "sha256:d3d877b061dc66831afe9185bcdd76a6fcb4a830d42c19079369b807d75f5cb4"
+hash = "sha256:a2c94942999ae16bba591554f7a242192e43d9ce2648ade3e67f69bfe0f82828"
 file = "src/components/input.rs"
 
 [registries.topcoat.components.kbd]
@@ -77,11 +77,11 @@ hash = "sha256:2349f524496bd7d4b037dbc5d1a2696ec8402db00fdfcc147a041ca2ce3be490"
 file = "src/components/progress.rs"
 
 [registries.topcoat.components.radio_group]
-hash = "sha256:c932d8c876fb5bb1f82a2178006febf453bb12a38fd36942b35fe791228fec20"
+hash = "sha256:a55f13c51c47e70b28f1a6bf69f4ba392312acb3b901d4976d9ba8b96f21d2b4"
 file = "src/components/radio_group.rs"
 
 [registries.topcoat.components.select]
-hash = "sha256:eb0ed5c328954fa26759d66cddce6abe329ff5bece8b72cd41372892a1c7b576"
+hash = "sha256:efec0a2c3128ae984b642c6454847b5417b151d7aad2146a83f85c34edce1337"
 file = "src/components/select.rs"
 
 [registries.topcoat.components.separator]
@@ -89,7 +89,7 @@ hash = "sha256:cc8c4299f99e923e3cec90f95616f40db01dce42c22fbf8902e4b0896c2aae1c"
 file = "src/components/separator.rs"
 
 [registries.topcoat.components.sheet]
-hash = "sha256:b1c4415dd58a3bd9374a52f4da4b75e62540dc5a506ed985f09785c72868a27c"
+hash = "sha256:b13af9a51a8d9e79b9601b55d475682aa09c2ebde50cf1fbbb997775f058fc15"
 file = "src/components/sheet.rs"
 
 [registries.topcoat.components.skeleton]
@@ -109,15 +109,15 @@ hash = "sha256:9d081f6368b26ab9b244a0cbd5c2a920b749354be77338889f58b0951f269a64"
 file = "src/components/table.rs"
 
 [registries.topcoat.components.tabs]
-hash = "sha256:fca7106145fd45b6d9b9ac1a16586f081dea7f9301bbc0a8fc5f8b163a24b05c"
+hash = "sha256:4ac764d2c426e806afc9acf413a4bbc10c28a65a4234aba8547d764336047dce"
 file = "src/components/tabs.rs"
 
 [registries.topcoat.components.textarea]
-hash = "sha256:9cf7ce740191227bde90bf6e085abacca6e90e3b16385c6ace7d455fc032709d"
+hash = "sha256:d25bbbcf3a575930cbfacbfa62bb4816944c19bfd3b462721347aab34f4f0c05"
 file = "src/components/textarea.rs"
 
 [registries.topcoat.components.toggle]
-hash = "sha256:fa90092907c3ce9b21d9af0d828bbe1e6d544b648f9949b7667e11d74a62ee7b"
+hash = "sha256:135831af05bb1b5c7f478ee7316b15f04a3e8062b107d3ac5a39b0be6ca40d4f"
 file = "src/components/toggle.rs"
 
 [registries.topcoat.components.tooltip]
