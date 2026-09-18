@@ -525,6 +525,13 @@ fn recover(error: BoxError) -> Error {
 /// // `fallback_service`.
 /// let service = TowerService::new(router);
 /// ```
+///
+/// The surrounding server owns the connections, so the router does not know
+/// the peer address of a request it receives this way. To make
+/// [`remote_addr`](crate::request::remote_addr) and
+/// [`client_ip`](crate::request::client_ip)
+/// work, insert a [`RemoteAddr`](crate::RemoteAddr) into the request's
+/// extensions before it reaches the service.
 #[derive(Clone)]
 pub struct TowerService {
     /// The served router, shared with every clone of the service.
