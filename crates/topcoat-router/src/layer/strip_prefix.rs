@@ -1,4 +1,4 @@
-#![doc = include_str!("../docs/strip_prefix.md")]
+#![doc = include_str!("../../docs/strip_prefix.md")]
 
 use std::borrow::Cow;
 
@@ -21,7 +21,7 @@ use crate::{
 /// ```rust
 /// use topcoat::{
 ///     Result,
-///     router::{Router, StripPrefix, route},
+///     router::{Router, StripPrefixLayer, route},
 /// };
 ///
 /// #[route(GET "/res/{*path}")]
@@ -31,18 +31,18 @@ use crate::{
 ///
 /// let router = Router::builder()
 ///     .route(files)
-///     .layer(StripPrefix::new("/res"))
+///     .layer(StripPrefixLayer::new("/res"))
 ///     .build();
 /// ```
 #[derive(Debug, Clone)]
-pub struct StripPrefix {
+pub struct StripPrefixLayer {
     /// The URL path prefix whose matched routes this layer wraps.
     path: Cow<'static, Path>,
     /// The URI path prefix stripped from each request.
     prefix: Cow<'static, str>,
 }
 
-impl StripPrefix {
+impl StripPrefixLayer {
     /// Strips `prefix` from the request path for the matched routes under it.
     ///
     /// `prefix` is a route path (`/res`), used both as the layer's path and as
@@ -78,7 +78,7 @@ impl StripPrefix {
     }
 }
 
-impl Layer for StripPrefix {
+impl Layer for StripPrefixLayer {
     fn path(&self) -> Option<&Path> {
         Some(&self.path)
     }
@@ -185,7 +185,7 @@ mod tests {
                 Path::new("/res/{*path}"),
                 echo_path,
             ))
-            .layer(StripPrefix::new("/res"))
+            .layer(StripPrefixLayer::new("/res"))
             .build();
 
         let response = send(&router, "/res/hello.txt?cache=1");
@@ -201,7 +201,7 @@ mod tests {
                 Path::new("/legacy/{*rest}"),
                 echo_path,
             ))
-            .layer(StripPrefix::new("/res").at("/legacy"))
+            .layer(StripPrefixLayer::new("/res").at("/legacy"))
             .build();
 
         let response = send(&router, "/legacy/users/7");

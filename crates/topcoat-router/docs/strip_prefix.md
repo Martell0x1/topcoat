@@ -1,11 +1,14 @@
 Rewriting the request path by removing a leading prefix.
 
-A mounted service that looks up files or nested routes from the request URI often expects paths relative to its own root. [`StripPrefix`] is a [`Layer`](crate::Layer) that removes a leading URI prefix before inner layers and the route run, so a service mounted at `/res/{*path}` can see `/hello.txt` instead of `/res/hello.txt`.
+A mounted service that looks up files or nested routes from the request URI often expects paths relative to its own root. [`StripPrefixLayer`] is a [`Layer`](crate::Layer) that removes a leading URI prefix before inner layers and the route run, so a service mounted at `/res/{*path}` can see `/hello.txt` instead of `/res/hello.txt`.
 
-Register it with [`RouterBuilder::layer`](crate::RouterBuilder::layer). The layer wraps the matched routes under the same prefix; scope it to a different path with [`at`](StripPrefix::at).
+Register it with [`RouterBuilder::layer`](crate::RouterBuilder::layer). The layer wraps the matched routes under the same prefix; scope it to a different path with [`at`](StripPrefixLayer::at).
 
 ```rust
-use topcoat::{Cx, router::{Router, StripPrefix, request::uri, route}};
+use topcoat::{
+    context::Cx,
+    router::{Router, StripPrefixLayer, request::uri, route},
+};
 
 #[route(GET "/api/{*path}")]
 async fn path(cx: &Cx) -> String {
@@ -14,7 +17,7 @@ async fn path(cx: &Cx) -> String {
 
 let router = Router::builder()
     .route(path)
-    .layer(StripPrefix::new("/api"))
+    .layer(StripPrefixLayer::new("/api"))
     .build();
 ```
 

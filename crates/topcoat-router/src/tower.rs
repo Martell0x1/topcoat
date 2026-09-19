@@ -1293,7 +1293,7 @@ mod tests {
                 Path::new("/legacy/{*rest}"),
                 tower::service_fn(echo_service),
             ))
-            .layer(crate::StripPrefix::new("/legacy"))
+            .layer(crate::StripPrefixLayer::new("/legacy"))
             .build();
 
         let request = http::Request::builder()
