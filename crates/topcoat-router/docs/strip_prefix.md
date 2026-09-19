@@ -4,20 +4,18 @@ A mounted service that looks up files or nested routes from the request URI ofte
 
 Register it with [`RouterBuilder::layer`](crate::RouterBuilder::layer). The layer wraps the matched routes under the same prefix; scope it to a different path with [`at`](StripPrefix::at).
 
-```rust,ignore
-use topcoat::router::{Methods, Router, StripPrefix, tower::TowerRoute};
-use tower_http::services::ServeDir;
+```rust
+use topcoat::{Cx, router::{Router, StripPrefix, request::uri, route}};
+
+#[route(GET "/api/{*path}")]
+async fn path(cx: &Cx) -> String {
+    uri(cx).path().to_owned()
+}
 
 let router = Router::builder()
-    .route(TowerRoute::new(
-        Methods::Any,
-        "/res/{*path}",
-        ServeDir::new("res"),
-    ))
-    .layer(StripPrefix::new("/res"))
+    .route(path)
+    .layer(StripPrefix::new("/api"))
     .build();
 ```
 
 The original URI stays on the outer context for logging and error rendering. Query strings are kept. A request whose path does not start with the prefix is left unchanged.
-
-To serve files from a directory without tower, use [`ServeDir`](crate::ServeDir), which strips its route prefix itself.

@@ -26,8 +26,6 @@ pub mod response;
 mod route;
 mod router;
 #[cfg(feature = "serve")]
-mod serve_dir;
-#[cfg(feature = "serve")]
 mod service;
 mod strip_prefix;
 #[cfg(feature = "tower")]
@@ -58,8 +56,6 @@ pub use proxy::*;
 pub use query_param::*;
 pub use route::*;
 pub use router::*;
-#[cfg(feature = "serve")]
-pub use serve_dir::*;
 #[cfg(feature = "serve")]
 pub use service::*;
 pub use strip_prefix::*;

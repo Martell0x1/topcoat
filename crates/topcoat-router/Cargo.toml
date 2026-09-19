@@ -35,9 +35,7 @@ sitemap = [
 serve = [
 	"dep:hyper",
 	"dep:hyper-util",
-	"dep:mime_guess",
 	"dep:tokio",
-	"tokio/fs",
 	"tokio/macros",
 	"tokio/net",
 	"tokio/rt",

@@ -1,5 +1,4 @@
 #![doc = include_str!("../docs/strip_prefix.md")]
-#![cfg_attr(not(feature = "serve"), allow(rustdoc::broken_intra_doc_links))]
 
 use std::borrow::Cow;
 
@@ -130,19 +129,6 @@ pub(crate) fn rewrite_path(uri: http::Uri, path: &str) -> http::Uri {
     http::Uri::from_parts(parts).expect("rewritten URI is valid")
 }
 
-/// Static URI prefix of a route path: the segments before the first `{`.
-pub(crate) fn route_uri_prefix(path: &Path) -> &str {
-    let path = path.as_str();
-    if path.is_empty() {
-        return "";
-    }
-    match path.find("/{") {
-        Some(0) => "",
-        Some(index) => &path[..index],
-        None => path,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::future::Future;
@@ -189,14 +175,6 @@ mod tests {
         assert_eq!(strip_path_prefix("/res", "/res").as_deref(), Some("/"));
         assert_eq!(strip_path_prefix("/resfoo", "/res"), None);
         assert_eq!(strip_path_prefix("/other", "/res"), None);
-    }
-
-    #[test]
-    fn route_uri_prefix_stops_at_the_first_parameter() {
-        assert_eq!(route_uri_prefix(Path::new("/res/{*path}")), "/res");
-        assert_eq!(route_uri_prefix(Path::new("/{*path}")), "");
-        assert_eq!(route_uri_prefix(Path::new("/res")), "/res");
-        assert_eq!(route_uri_prefix(Path::ROOT), "");
     }
 
     #[test]
