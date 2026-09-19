@@ -44,12 +44,12 @@ use crate::{
 ///
 /// - Static segments match literally. `/res` matches `/res/logo.svg`, but not
 ///   `/resources/logo.svg`.
-/// - Parameters match one non-empty segment. `/tenants/{id}` removes
-///   `/tenants/42` from `/tenants/42/logo.svg`.
-/// - Groups take part in route scoping but consume no URI segments.
-///   `/(assets)/res` removes `/res` from requests to routes in that group.
-/// - A catch-all consumes the non-empty remaining path. `/res/{*path}` turns
-///   `/res/css/site.css` into `/`.
+/// - Parameters match one non-empty segment. `/tenants/{id}` removes `/tenants/42` from
+///   `/tenants/42/logo.svg`.
+/// - Groups take part in route scoping but consume no URI segments. `/(assets)/res` removes `/res`
+///   from requests to routes in that group.
+/// - A catch-all consumes the non-empty remaining path. `/res/{*path}` turns `/res/css/site.css`
+///   into `/`.
 ///
 /// The remaining path and query string keep their original encoding. When the
 /// entire path is consumed, the new path is `/`. A prefix ending in `/` matches
