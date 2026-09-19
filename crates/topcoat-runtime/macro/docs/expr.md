@@ -18,6 +18,8 @@ The server evaluates the expression once to produce the initial HTML. In the bro
 
 An invocation expands to an [`Expr`] value bundling the server-evaluated result with the JavaScript source.
 
+The server evaluates expressions synchronously and observes their signal reads. If an expression reads no signals, it renders without reactive bindings or marker comments. This includes literals and captured ordinary values. Constructing an event-handler closure does not run its body, but its JavaScript is still emitted so the handler can run in the browser.
+
 # Captured variables
 
 An identifier that is not defined inside the expression is captured from the surrounding Rust scope:
@@ -25,8 +27,8 @@ An identifier that is not defined inside the expression is captured from the sur
 ```rust
 # use topcoat::{Result, context::Cx, runtime::signal, view::*};
 # #[component]
-# async fn example(cx: &Cx, step: f64) -> Result<impl View> {
-let count = signal(cx, || 0.0);
+# async fn example(cx: &Cx, step: usize) -> Result<impl View> {
+let count = signal(cx, || 0usize);
 
 Ok(view! {
     $(count.get() + step)
@@ -34,19 +36,34 @@ Ok(view! {
 # }
 ```
 
-The captured value is cloned into the expression, so the surrounding code keeps using it, then serialized into the page during the render and becomes a constant in the generated JavaScript. It is a snapshot: the browser keeps the value from the render, and later changes on the server do not reach it. Captured values must belong to the shared vocabulary described next, all of which is cheap to clone.
+The captured value is cloned into the expression, so the surrounding code keeps using it, then serialized into the page during the render and becomes a constant in the generated JavaScript. It is a snapshot: the browser keeps the value from the render, and later changes on the server do not reach it. Captured values must belong to the shared vocabulary described next. Cloning an owned collection clones its elements; capturing a slice borrows the Rust elements but still serializes a snapshot for the browser.
+
+A captured `Expr<T>` behaves as its result type `T` inside the expression. Its JavaScript is inlined at each use, so signal reads stay reactive, including when used inside an event handler. The server reuses its already evaluated value and carries its dynamic status into the enclosing expression. Capturing a static expression keeps the static optimization available.
+
+```rust
+# use topcoat::{Result, context::Cx, runtime::{expr, signal}, view::*};
+# #[component]
+# async fn example(cx: &Cx) -> Result<impl View> {
+let selected = signal(cx, || "overview".to_owned());
+let active = expr!(selected.get() == "overview");
+let label = expr!(if active { "Selected" } else { "Select" });
+# Ok(view! { (label) })
+# }
+```
 
 # The shared vocabulary
 
 Expressions operate on a fixed vocabulary of types that exist on both sides, each exposing a subset of its Rust API. The members you reach for most:
 
-- `f64`: arithmetic (`+`, `-`, `*`, `/`), comparisons, and negation. All numbers are `f64`, matching JavaScript; integer literals are not accepted, so write `1.0` rather than `1`. Rendered text follows Rust's `Display`, so it is always positional, however large or small: `inf`, `-inf`, and `-0` are spelled the Rust way rather than the JavaScript way.
+- `f64`: arithmetic (`+`, `-`, `*`, `/`), comparisons, and negation. Floating-point literals are `f64`. Rendered text follows Rust's `Display`, so it is always positional, however large or small: `inf`, `-inf`, and `-0` are spelled the Rust way rather than the JavaScript way.
+- Rust integer types: arithmetic (`+`, `-`, `*`, `/`, `%`), comparisons, and negation for signed types. Unsuffixed integer literals are `usize`; use a suffix for another type, such as `42u64` or `-1i32`. Operands must have the same type. Values retain their full precision in the browser, including 128-bit integers, and pointer-sized integers use the server target's width. Arithmetic panics on overflow, division by zero, or remainder by zero in both debug and release builds. Signed `MIN / -1`, `MIN % -1`, and negating `MIN` also panic.
 - `bool`: `!`, equality comparisons, `then`, and `then_some`.
 - `String` and `&str`: `len`, `is_empty`, `trim`, `trim_start`, `trim_end`, `starts_with`, `ends_with`, `contains`, `to_owned`, and comparisons.
 - `Option<T>`: `is_some`, `is_none`, `unwrap`, and `expect`.
 - `Result<T, E>`: `is_ok`, `is_err`, `ok`, `err`, `unwrap`, `expect`, `unwrap_err`, and `expect_err`.
+- `Vec<T>`, `[T; N]`, and slices: `len`, `is_empty`, `get`, `index`, `first`, `last`, `to_vec`, and `to_owned`. Vectors and arrays also support `as_slice` and `clone`. Lengths and indexes are `usize`. `get` returns `None` for an out-of-bounds index; `index` panics. Both borrow the element. Elements must belong to the shared vocabulary.
 - Tuples of vocabulary types.
-- [`Signal`]: `get` and `set`, plus a shorter spelling for common writes: `toggle` on a `bool` signal, `increment` and `decrement` on an `f64` signal, and `push_str` on a `String` signal.
+- [`Signal`]: `get` and `set`, plus a shorter spelling for common writes: `toggle` on a `bool` signal, `increment` and `decrement` on a numeric signal, and `push_str` on a `String` signal.
 
 An expression is evaluated twice, once per side, so a member has to mean the same thing in both. Rust's behavior is the definition and the JavaScript matches it, including where that costs a departure from the JavaScript norm: `len` counts UTF-8 bytes rather than UTF-16 code units, comparisons order by code point rather than by UTF-16 code unit, and `trim` and its siblings strip the Unicode `White_Space` set rather than the ECMAScript one, so U+FEFF is kept and U+0085 is removed.
 
@@ -54,7 +71,7 @@ An expression is evaluated twice, once per side, so a member has to mean the sam
 
 Expressions use a subset of Rust's syntax:
 
-- String, `f64`, and `bool` literals.
+- String, integer, `f64`, and `bool` literals.
 - The unary and binary operators listed above.
 - Method calls, field access, and indexing.
 - Blocks, with `let` bindings of plain identifiers; the trailing expression is the block's value.
@@ -62,7 +79,7 @@ Expressions use a subset of Rust's syntax:
 - Closures, optionally `async`, and `.await`.
 - `loop`, `while`, `break`, `continue`, and `return`.
 
-Anything else -- `match`, integer literals, struct expressions, multi-segment paths -- is rejected with a compile error pointing at the unsupported expression.
+Anything else -- `match`, struct expressions, multi-segment paths -- is rejected with a compile error pointing at the unsupported expression.
 
 # Embedding JavaScript
 
@@ -84,6 +101,8 @@ Ok(view! {
 ```
 
 `${ident}` inside the JavaScript string interpolates a binding from the expression's scope. Without the Rust argument the expression can no longer be evaluated on the server, so that form is only usable where the expression runs purely in the browser. In either form, keeping the two sides equivalent is up to you.
+
+Signal reads in the Rust fallback determine whether the expression needs a browser binding. The fallback must therefore read the signals its JavaScript depends on, even if their initial values happen to produce a constant result.
 
 [`Expr`]: struct.Expr.html
 [`Signal`]: struct.Signal.html

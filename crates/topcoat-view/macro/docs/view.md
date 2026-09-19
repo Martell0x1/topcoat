@@ -347,7 +347,7 @@ See how to define components in the [`component`] macro guide.
 
 ## Keys
 
-Each component invocation has a stable identity derived from the chain of invocation sites leading down to it in code, the same from one render to the next. The framework attaches per-invocation data such as state to it. Inside a `for` body one component invocation renders many times, and the site alone cannot tell the repetitions apart. Use the reserved `key` property on component to distinguish individual calls inside of the loop:
+Each component invocation receives a context with a stable identity derived from the chain of sites leading down to it in code, the same from one render to the next. The framework attaches per-invocation data such as state to it. A `for` loop repeats its body at the same site. Use `#[key(expr)]` on the loop to give each iteration its own identity, inherited by the components it invokes:
 
 ```rust
 # use topcoat::{Result, view::*};
@@ -358,16 +358,19 @@ Each component invocation has a stable identity derived from the chain of invoca
 # async fn example() -> Result<impl View> {
 # let posts = vec![Post { id: 1, title: "A" }];
 Ok(view! {
+    #[key(post.id)]
     for post in posts {
-        post_card(key: post.id, title: post.title)
+        post_card(title: post.title)
     }
 })
 # }
 ```
 
-Key the invocation with a value that identifies the item behind it, such as its database id, not the loop index: the identity then follows the item when the list reorders. Any value implementing [`IdentityKey`] works as a key. A `key:` is also allowed outside a loop, for an invocation that repeats in ways the macro cannot see.
+The key expression is evaluated once per iteration and can use the loop's bindings. Choose a value that identifies the item, such as its database id, so identity follows the item when the list reorders. Any value implementing [`IdentityKey`] works as a key.
 
-A repeated invocation without a `key:` still renders, but its identity is ambiguous. Consuming an ambiguous identity, in the component itself or anywhere nested below it, errors with the location of the invocation that is missing its key.
+The attribute is optional. An unkeyed loop still renders, but its iteration identity is ambiguous. Consuming that identity through a component's context errors with the location of the loop missing its key. Nested keyed loops inherit ambiguity from an unkeyed outer loop.
+
+Ordinary Rust expressions use the context explicitly passed to them. The macro does not rebind context variables inside loops. If a helper needs a distinct identity for each call, pass a context derived with [`Cx::keyed`](../context/struct.Cx.html#method.keyed), such as `helper(&cx.keyed(item.id))`.
 
 # Views Are Lazy
 
@@ -398,9 +401,9 @@ A view that captures a reference borrows whatever it points at, so it cannot out
 
 The components inside a [`view!`] render concurrently. Sibling components, the iterations of a `for` loop, the taken branch of an `if` or `match` all start at the same time. A component waiting on a database query or an HTTP request therefore does not hold up the rest of the view, which avoids request waterfalls.
 
-The rendered markup always appears in source order, no matter which component finishes first. What is unspecified is the order in which component bodies run, and that order can change between renders. Treat a [`view!`] body as a set of functions without side effects: a component takes its props, reads the request context, and returns markup. Do not rely on another component in the same view having run first, and do not communicate between components through shared mutable state.
+The rendered markup always appears in source order, no matter which component finishes first. The order in which component bodies and template expressions run is unspecified and can change between renders.
 
-Plain Rust in the view, such as interpolated expressions, `let` bindings, loop iterators, and branch conditions, still runs in source order. Only the components render concurrently.
+Treat component bodies and template expressions as computations without side effects. Do not rely on another component or expression in the same view having run first, and do not communicate through shared mutable state. If work needs to happen in a particular order, perform it before constructing the view and interpolate the resulting values.
 
 # Boolean And Conditional Attributes
 
@@ -608,8 +611,7 @@ Ok(view! {
 [`topcoat::view::Class`]: struct.Class.html
 [`view!`]: macro.view.html
 [`View`]: trait.View.html
-[`Identity`]: identity/struct.Identity.html
-[`Identity::current`]: identity/struct.Identity.html#method.current
-[`IdentityKey`]: identity/trait.IdentityKey.html
+[`Identity`]: ../core/identity/struct.Identity.html
+[`IdentityKey`]: ../core/identity/trait.IdentityKey.html
 [`StatusCode`]: https://docs.rs/http/latest/http/status/struct.StatusCode.html
 [`HeaderMap`]: https://docs.rs/http/latest/http/header/struct.HeaderMap.html

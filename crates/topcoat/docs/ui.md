@@ -108,8 +108,8 @@ use components::button::button;
 use components::card::{
     card, card_content, card_description, card_footer, card_header, card_title,
 };
+use components::field::{field, field_description, field_group, field_label};
 use components::input::input;
-use components::label::label;
 use topcoat::{Result, view::{View, attributes, component, view}};
 
 #[component]
@@ -121,14 +121,33 @@ async fn sign_in() -> Result<impl View> {
                 card_description("Use your work email to continue.")
             )
             card_content(
-                <form class="flex flex-col gap-2">
-                    label(attrs: attributes! { for="email" }, "Email")
-                    input(
-                        attrs: attributes! { id="email" type="email" placeholder="you@example.com" }
+                <form id="sign-in" method="post" action="/login">
+                    field_group(
+                        field(
+                            field_label(attrs: attributes! { for="email" }, "Email")
+                            input(
+                                attrs: attributes! {
+                                    id="email"
+                                    name="email"
+                                    type="email"
+                                    placeholder="you@example.com"
+                                    aria-describedby="email-description"
+                                }
+                            )
+                            field_description(
+                                attrs: attributes! { id="email-description" },
+                                "Use the email address associated with your account."
+                            )
+                        )
                     )
                 </form>
             )
-            card_footer(button(attrs: attributes! { class="w-full" }, "Sign in"))
+            card_footer(
+                button(
+                    attrs: attributes! { class="w-full" type="submit" form="sign-in" },
+                    "Sign in"
+                )
+            )
         )
     })
 }
@@ -154,6 +173,8 @@ Beyond that, each component documents itself: the source now lives in your proje
 # Theming
 
 A theme is a small set of design tokens: CSS variables for the page background, text colors, the primary and destructive accents, borders, the focus ring, and control shadows, defined on `:root` and, for dark mode, on `.dark`. Components refer to tokens only (`bg-primary`, `text-muted-foreground`, `border-border`, ...), never to raw colors, so the whole component set restyles itself when you edit the values in `styles.css`.
+
+`--background` is the page color. `--card` and `--card-foreground` set the background and text for cards and panels; `--popover` and `--popover-foreground` do the same for floating menus and popovers. The neutral theme makes these surfaces slightly lighter than the page. Their colors can be adjusted independently.
 
 Dark mode is opt-in: putting the `dark` class on an ancestor (typically `<html>`, or any subtree) switches everything inside it to the dark values. Hover and press states have no tokens of their own; components derive them by applying the fill color at reduced opacity, which adapts to both color schemes automatically.
 

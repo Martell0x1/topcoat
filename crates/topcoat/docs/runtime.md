@@ -50,7 +50,7 @@ A `$(...)` block is a **runtime expression** and can stand wherever a view node 
 # #[component]
 # async fn example() -> Result<impl View> {
 Ok(view! {
-    <p>"The answer: " $(1.0 + 2.0)</p>
+    <p>"The answer: " $(1 + 2)</p>
 })
 # }
 ```
@@ -59,7 +59,7 @@ The expression is type-checked Rust, but it is compiled twice: the server evalua
 
 Because a runtime expression must behave identically in both languages, only a subset of Rust is supported: a small vocabulary of types and methods. `$(...)` is syntactic sugar for the [`expr!`] macro, which documents that vocabulary, how captured variables behave, and the `raw!` escape hatch to hand-written JavaScript.
 
-So far the browser has no reason to run `1.0 + 2.0` a second time; the answer stays `3`. Expressions become useful when they read state that changes: signals.
+So far the browser has no reason to run `1 + 2` a second time; the answer stays `3`. Expressions become useful when they read state that changes: signals.
 
 # Signals
 
@@ -69,7 +69,7 @@ A **signal** is a piece of state that lives in the browser. Create one with [`si
 # use topcoat::{Result, context::Cx, runtime::signal, view::*};
 # #[component]
 # async fn example(cx: &Cx) -> Result<impl View> {
-let count = signal(cx, || 0.0);
+let count = signal(cx, || 0usize);
 
 Ok(view! {
     <p>"Count: " $(count.get())</p>
@@ -89,10 +89,10 @@ An attribute starting with `@` attaches an event handler: `@click`, `@input`, or
 # use topcoat::{Result, context::Cx, runtime::signal, view::*};
 # #[component]
 # async fn example(cx: &Cx) -> Result<impl View> {
-let count = signal(cx, || 0.0);
+let count = signal(cx, || 0usize);
 
 Ok(view! {
-    <button @click=$(|_e| count.set(count.get() + 1.0))>"+1"</button>
+    <button @click=$(|_e| count.set(count.get() + 1))>"+1"</button>
     <p>"Count: " $(count.get())</p>
 })
 # }
@@ -116,7 +116,7 @@ Ok(view! {
 
 For the rare event logic the expression vocabulary cannot say, the value can also be a string literal of raw JavaScript: `@click="alert('hi')"`.
 
-`set` is the general write, and a few updates that depend on the current value have a shorter spelling: `toggle` on a `bool` signal, `increment` and `decrement` on an `f64` signal, and `push_str` on a `String` signal. The handler above can therefore be written as `$(|_e| count.increment())`.
+`set` is the general write, and a few updates that depend on the current value have a shorter spelling: `toggle` on a `bool` signal, `increment` and `decrement` on a numeric signal, and `push_str` on a `String` signal. The handler above can therefore be written as `$(|_e| count.increment())`.
 
 # Bind attributes
 
@@ -161,13 +161,13 @@ Runtime expressions run in the browser, so they cannot query the database or use
 ```rust
 # use topcoat::{Result, context::Cx, runtime::{procedure, signal}, view::*};
 #[procedure]
-async fn double(value: f64) -> Result<f64> {
-    Ok(value * 2.0)
+async fn double(value: usize) -> Result<usize> {
+    Ok(value * 2)
 }
 
 # #[component]
 # async fn example(cx: &Cx) -> Result<impl View> {
-let count = signal(cx, || 1.0);
+let count = signal(cx, || 1usize);
 
 Ok(view! {
     <button @click=$(async |_e| {
@@ -184,7 +184,7 @@ The call is an HTTP request under the hood: the arguments travel to the server, 
 
 # Shards
 
-When it is the markup itself that needs the server -- fresh search results as the user types -- use a **shard**: a component that re-renders on the server whenever one of its arguments changes. Arguments are runtime expressions; the browser sends their current values to the server and swaps the returned HTML in place:
+When it is the markup itself that needs the server -- fresh search results as the user types -- use a **shard**: a component that re-renders on the server whenever one of its arguments changes. Arguments accept fixed values or runtime expressions; the browser sends their current values to the server and swaps the returned HTML in place:
 
 ```rust
 # use topcoat::{Result, context::Cx, view::*, runtime::{shard, signal, Event}};
@@ -245,10 +245,10 @@ To avoid re-running the whole page, use a shard: a signal tracked inside a shard
 
 ```rust
 # use topcoat::{Result, context::Cx, runtime::{shard, signal}, view::*};
-# async fn load_page(_cx: &Cx, _page: f64) -> Result<Vec<String>> { Ok(vec![]) }
+# async fn load_page(_cx: &Cx, _page: usize) -> Result<Vec<String>> { Ok(vec![]) }
 #[shard]
 async fn paginated(cx: &Cx) -> Result<impl View> {
-    let page = signal(cx, || 1.0);
+    let page = signal(cx, || 1usize);
     let items = load_page(cx, page.get()).await?;
 
     Ok(view! {
@@ -256,7 +256,11 @@ async fn paginated(cx: &Cx) -> Result<impl View> {
             <div>(item)</div>
         }
 
-        <button @click=$(|_e| page.decrement())>"previous"</button>
+        <button @click=$(|_e| {
+            if page.get() > 1 {
+                page.decrement()
+            }
+        })>"previous"</button>
         <button @click=$(|_e| page.increment())>"next"</button>
     })
 }
@@ -264,7 +268,7 @@ async fn paginated(cx: &Cx) -> Result<impl View> {
 
 Clicking a button changes `page` in the browser, and because the shard read it on the server, the shard runs again with the new value and swaps in the next page of items.
 
-A shard can also take a signal from its caller, through a parameter typed `Signal<T>` and passed as `$(signal)`. The signal handle does not change when its value does, so whether a change re-renders the shard depends on how the shard body reads it. See [`#[shard]`][shard].
+A shard can also take a signal from its caller, through a parameter typed `Signal<T>` and passed directly as `signal`. The signal handle does not change when its value does, so whether a change re-renders the shard depends on how the shard body reads it. See [`#[shard]`][shard].
 
 `.get_untracked()` and `.read_untracked()` read a signal's value without making anything depend on it, for a body that wants the value a run started with but should not run again when it changes.
 

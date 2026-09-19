@@ -9,9 +9,9 @@
 
 use topcoat::{
     Result,
-    context::{Cx, CxTestBuilder},
-    router::{Body, request::IDENTITY_HEADER},
-    runtime::{Shard, Signal, shard, signal},
+    context::Cx,
+    router::{Body, Route, Router, request::IDENTITY_HEADER, response::Response, to_bytes},
+    runtime::{Shard, ShardRoute, Signal, shard, signal},
     view::{View, ViewExt, component, view},
 };
 
@@ -41,7 +41,30 @@ async fn by_signal(query: Signal<String>) -> Result<impl View> {
 #[component]
 async fn signal_host(cx: &Cx) -> Result<impl View> {
     let query = signal(cx, || String::from("shoes"));
-    Ok(view! { by_signal(query: $(query)) })
+    Ok(view! { by_signal(query: query) })
+}
+
+#[shard]
+async fn search_results(query: String, limit: usize) -> Result<impl View> {
+    Ok(view! {
+        <p>
+            (query)
+            " "
+            (limit)
+        </p>
+    })
+}
+
+#[component]
+async fn search_host(cx: &Cx) -> Result<impl View> {
+    let query = signal(cx, || String::from("shoes"));
+    Ok(view! { search_results(query: $(query.get()), limit: 20) })
+}
+
+#[shard]
+async fn without_arguments(cx: &Cx) -> Result<impl View> {
+    let page = signal(cx, || 1usize);
+    Ok(view! { <p>(page.get())</p> })
 }
 
 /// The shard id and identity arguments of the scope start marker in `html`.
@@ -64,30 +87,56 @@ fn last_signal_id(html: &str) -> &str {
     &html[start..end]
 }
 
-/// Builds the context of a JSON request to the shard endpoint naming
-/// `identity` in the identity header.
-fn endpoint_cx(identity: &str) -> Cx {
-    let (parts, ()) = http::Request::builder()
+/// Sends a JSON request through the router, which installs its identity.
+async fn endpoint(shard: &'static impl Shard, identity: &str, body: Body) -> Response {
+    let route = ShardRoute::new(shard);
+    let request = http::Request::builder()
+        .method("POST")
+        .uri(route.path().as_str())
         .header("content-type", "application/json")
         .header(IDENTITY_HEADER, identity)
-        .body(())
-        .unwrap()
-        .into_parts();
-    CxTestBuilder::new().request_context(parts).build()
+        .body(body)
+        .unwrap();
+    Router::builder().route(route).build().handle(request).await
 }
 
 /// Renders `shard` through its endpoint at `identity`, carrying the JSON
 /// array `args` of arguments and the JSON object `signals` of signal values.
-async fn rerender_with(shard: &impl Shard, identity: &str, args: &str, signals: &str) -> String {
-    let cx = &endpoint_cx(identity);
+async fn rerender_with(
+    shard: &'static impl Shard,
+    identity: &str,
+    args: &str,
+    signals: &str,
+) -> String {
     let body = Body::from(format!(r#"{{"args":{args},"signals":{signals}}}"#));
-    shard.render(cx, body).await.unwrap().render(cx)
+    let response = endpoint(shard, identity, body).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    String::from_utf8(bytes.to_vec()).unwrap()
 }
 
 /// Renders the `stateful` shard through its endpoint at `identity`,
 /// carrying the JSON object `signals` of signal values.
 async fn rerender(identity: &str, signals: &str) -> String {
     rerender_with(&stateful, identity, r#"["a"]"#, signals).await
+}
+
+#[tokio::test]
+async fn a_shard_without_arguments_accepts_the_browser_request() {
+    let cx = &Cx::default();
+    let inline = view! { cx => without_arguments() }
+        .single()
+        .await
+        .unwrap()
+        .render(cx);
+    let (_, identity) = scope_marker(&inline);
+    let id = last_signal_id(&inline);
+    let signals = format!(
+        r#"{{"{id}":{{"t":"usize","bits":{},"v":"2"}}}}"#,
+        usize::BITS,
+    );
+    let rerendered = rerender_with(&without_arguments, identity, "[]", &signals).await;
+    assert!(rerendered.contains("<p>2</p>"), "{rerendered}");
 }
 
 #[tokio::test]
@@ -119,18 +168,60 @@ async fn a_signal_argument_is_read_inline_and_rebuilt_from_its_value() {
 }
 
 #[tokio::test]
+async fn a_static_argument_keeps_its_javascript_for_rerenders() {
+    let cx = &Cx::default();
+    let inline = view! { cx => stateful(label: String::from("constant")) }
+        .single()
+        .await
+        .unwrap()
+        .render(cx);
+    let (_, identity) = scope_marker(&inline);
+
+    assert!(
+        inline.contains("cx.hydrate(&quot;constant&quot;)"),
+        "{inline}"
+    );
+    assert!(inline.contains("<p>constant "), "{inline}");
+
+    let rerendered = rerender_with(&stateful, identity, r#"["constant"]"#, "{}").await;
+    assert!(rerendered.contains("<p>constant "), "{rerendered}");
+}
+
+#[tokio::test]
+async fn fixed_and_reactive_arguments_render_together() {
+    let cx = &Cx::default();
+    let inline = view! { cx => search_host() }
+        .single()
+        .await
+        .unwrap()
+        .render(cx);
+    let (_, identity) = scope_marker(&inline);
+
+    assert!(inline.contains("<p>shoes 20</p>"), "{inline}");
+    assert!(inline.contains(".get()"), "{inline}");
+    assert!(inline.contains("&quot;v&quot;:&quot;20&quot;"), "{inline}");
+
+    let args = format!(
+        r#"["boots",{{"t":"usize","bits":{},"v":"20"}}]"#,
+        usize::BITS,
+    );
+    let rerendered = rerender_with(&search_results, identity, &args, "{}").await;
+    assert!(rerendered.contains("<p>boots 20</p>"), "{rerendered}");
+}
+
+#[tokio::test]
 async fn a_signal_argument_without_a_value_is_rejected() {
-    let cx = &endpoint_cx(&"A".repeat(22));
     let body = Body::from(format!(
         r#"{{"args":[{{"t":"Signal","id":"{}"}}]}}"#,
         "0".repeat(32)
     ));
-    assert!(by_signal.render(cx, body).await.is_err());
+    let response = endpoint(&by_signal, &"A".repeat(22), body).await;
+    assert_eq!(response.status(), http::StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
 async fn a_rerender_derives_the_same_signal_id_as_the_inline_render() {
-    let cx = &Cx::default();
+    let cx = &Cx::default().keyed("host");
     let inline = view! { cx => host() }.single().await.unwrap().render(cx);
     let (shard, identity) = scope_marker(&inline);
     assert_eq!(shard, stateful.id().as_str(), "{inline}");
@@ -146,7 +237,7 @@ async fn a_rerender_derives_the_same_signal_id_as_the_inline_render() {
 
 #[tokio::test]
 async fn a_rerender_resumes_signals_from_the_values_it_carries() {
-    let cx = &Cx::default();
+    let cx = &Cx::default().keyed("host");
     let inline = view! { cx => host() }.single().await.unwrap().render(cx);
     let (_, identity) = scope_marker(&inline);
     let id = last_signal_id(&inline);
@@ -174,7 +265,7 @@ async fn a_rerender_at_another_identity_derives_another_signal_id() {
 
 #[tokio::test]
 async fn a_malformed_identity_is_rejected() {
-    let cx = &endpoint_cx("not base64");
     let body = Body::from(r#"{"args":["a"]}"#);
-    assert!(stateful.render(cx, body).await.is_err());
+    let response = endpoint(&stateful, "not base64", body).await;
+    assert_eq!(response.status(), http::StatusCode::BAD_REQUEST);
 }
