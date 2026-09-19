@@ -31,10 +31,11 @@ use crate::{
 /// service, a reverse proxy) as a route in a topcoat router, typically while
 /// migrating an existing application to topcoat one route at a time.
 /// Registered with [`any`](Self::any) at a catch-all path, it hands an entire
-/// URL subtree to the service. The service receives each request with its
-/// original URI; nothing is stripped or rewritten. A catch-all segment does
-/// not match the bare prefix itself, so register a second `TowerRoute` for
-/// the prefix if the service also serves that URL.
+/// URL subtree to the service. The adapter forwards the URI provided by the
+/// surrounding layers. To make paths relative to a mount point, register a
+/// [`StripPrefixLayer`](crate::StripPrefixLayer) for the route. A catch-all
+/// segment does not match the bare prefix itself, so register a second
+/// `TowerRoute` for the prefix if the service also serves that URL.
 ///
 /// The service must be `Clone`, `Send`, and `Sync`; wrap a service that is
 /// not `Sync` in `tower::buffer`. Its per-request clones share cross-request

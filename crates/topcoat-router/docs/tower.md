@@ -19,7 +19,7 @@ let router = Router::builder()
 
 The service receives the full request URI, including `/legacy`. A catch-all does not match `/legacy` itself, so register a second `TowerRoute` for that path if the service handles it. Use [`new`](TowerRoute::new) to forward only specific HTTP methods.
 
-To strip a mount prefix so a nested service sees paths relative to that prefix, wrap the route with [`StripPrefixLayer`](crate::StripPrefixLayer).
+Use [`StripPrefixLayer`](crate::StripPrefixLayer) when the service expects paths relative to its mount point. For a `TowerRoute` at `/legacy/{*rest}`, registering `.layer(StripPrefixLayer::new("/legacy"))` makes the service receive `/users/7?page=2` for a request to `/legacy/users/7?page=2`.
 
 # Running middleware as a layer
 
