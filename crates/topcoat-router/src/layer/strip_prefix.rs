@@ -1,5 +1,3 @@
-#![doc = include_str!("../../docs/strip_prefix.md")]
-
 use std::borrow::Cow;
 
 use topcoat_core::context::Cx;
